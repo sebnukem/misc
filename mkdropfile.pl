@@ -3,21 +3,22 @@
 
 use strict;
 use Getopt::Long;
+my $app = $0; $app =~ s=.*/==;
 
 sub usage() {
-	return <<'EOU';
+	return <<"EOU";
 Generate a dropfile to create packages for CG.
 Property IDs can be provided from arguments, stdin, or a file. No specific format required.
 
 Usage:
-  mkdropfile.pl PID ..
-  mkdropfile.pl OPTIONS -x PID ..
-  echo PID .. | mkdropfile.pl
-  cat PIDSFILE | mkdropfile.pl
-  mkdropfile.pl < PIDSFILE
-  mkdropfile.pl -i PIDSFILE
+  $app PID ..
+  $app OPTIONS -x PID ..
+  echo PID .. | $app
+  cat PIDSFILE | $app
+  $app < PIDSFILE
+  $app -i PIDSFILE
 
-  mkdropfile OPTIONS:
+  $app OPTIONS:
     -s, --section INT ..    specifiy Section IDs, defaults to 0 (all sections)
     -l, --langid INT ..     specify Lang IDs, defaults to 0 (all langs)
     -p, --priority INT      specify Priority, default 1
@@ -28,7 +29,7 @@ Usage:
     -o, --output FILENAME   output file name
 
 Example:
-  mkdropfile.pl -s 12 13 14 -l 1033 -p 20 -g 1 2 -t Prod -q 2 -x 1345 67853 112345
+  $app -s 12 13 14 -l 1033 -p 20 -g 1 2 -t Prod -q 2 -x 1345 67853 112345
 
 EOU
 }
@@ -57,9 +58,9 @@ GetOptions('help' => \$help,
 	) or die usage();
 
 if ($help) { print usage(); exit 0; }
-@sections = @sections ? sort(uniq(@sections)) : ('0');
-@langs = @langs ? sort(uniq(@langs)) : ('0');
-@genlevels = @genlevels ? sort(uniq(@genlevels)) : ('1');
+@sections = @sections ? sort {$a <=> $b} uniq(@sections) : ('0');
+@langs = @langs ? sort {$a <=> $b} uniq(@langs) : ('0');
+@genlevels = @genlevels ? sort {$a <=> $b} uniq(@genlevels) : ('1');
 @tags = @tags ? sort(uniq(@tags)) : ('');
 
 if ($inputfilename) { # read input file
@@ -78,18 +79,20 @@ if (! -t STDIN) { # we have STDIN piped not from terminal
 		my @a = split /\D/;
 		push @pids, shift @a while @a;
 }	}
-@pids = grep(/\d/, sort(uniq(@pids))) if @pids;
+@pids = sort {$a <=> $b} grep(/\d/, uniq(@pids)) if @pids;
 
 my ($pidn, $sectionn, $langn, $genleveln, $tagn) = (scalar(@pids), scalar(@sections), scalar(@langs), scalar(@genlevels), scalar(@tags));
-
-print "generating ". $pidn * $sectionn * $langn * $genleveln * $tagn . " row dropfile for:\n";
-print " $pidn properties: @pids\n";
-print " $sectionn sections: @sections\n";
-print " $langn langs: @langs\n";
-print " $genleveln gen levels: @genlevels\n";
-print " $tagn tags: @tags\n";
-print " priority: $priority\n";
-print " qid: $queue\n";
+my $rown = $pidn * $sectionn * $langn * $genleveln * $tagn;
+print <<"EOP";
+generating $rown-row dropfile for:
+$pidn properties: @pids
+$sectionn sections: @sections
+$langn langs: @langs
+$genleveln gen levels: @genlevels
+$tagn tags: @tags
+  priority: $priority
+  qid: $queue
+EOP
 die "no properties, exiting" if !$pidn;
 
 open my $ofile, ">:raw:encoding(UTF16-LE):crlf:utf8", $outputfilename;
@@ -103,6 +106,7 @@ foreach my $pid (@pids) {
 					print $ofile "\n$pid\t$section\t$lang\t$priority\t\t$genlevel\t$tag\t$queue";
 }	}	}	}	}
 close $ofile;
+print "done. "; system("wc -l $outputfilename");
 
 sub uniq {
     my %seen;
