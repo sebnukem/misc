@@ -106,7 +106,7 @@ foreach my $pid (@pids) {
 					print $ofile "\n$pid\t$section\t$lang\t$priority\t\t$genlevel\t$tag\t$queue";
 }	}	}	}	}
 close $ofile;
-print "done. "; system("wc -l $outputfilename");
+print "done"; system("wc -l $outputfilename");
 
 sub uniq {
     my %seen;
