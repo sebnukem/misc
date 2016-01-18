@@ -38,12 +38,12 @@ die usage() if -t STDIN && $#ARGV < 0;
 my $help = 0;
 my @sections = ();
 my @langs = ();
-my $priority = '1';
+my $priority = '1'; # default
 my @genlevels = ();
 my @tags = ();
-my $queue = '4';
+my $queue = '4'; # default
 my $inputfilename;
-my $outputfilename = "Hotel2TriggerEnhanced.txt";
+my $outputfilename = "Hotel2TriggerEnhanced.txt"; # default
 my @pids = ();
 GetOptions('help' => \$help,
 	'section|secid=i{1,}' => \@sections,
@@ -58,12 +58,12 @@ GetOptions('help' => \$help,
 	) or die usage();
 
 if ($help) { print usage(); exit 0; }
-@sections = @sections ? sort {$a <=> $b} uniq(@sections) : ('0');
-@langs = @langs ? sort {$a <=> $b} uniq(@langs) : ('0');
-@genlevels = @genlevels ? sort {$a <=> $b} uniq(@genlevels) : ('1');
-@tags = @tags ? sort(uniq(@tags)) : ('');
+@sections = @sections ? sort {$a <=> $b} uniq(@sections) : ('0'); # default
+@langs = @langs ? sort {$a <=> $b} uniq(@langs) : ('0'); # default
+@genlevels = @genlevels ? sort {$a <=> $b} uniq(@genlevels) : ('1'); # default
+@tags = @tags ? sort(uniq(@tags)) : (''); # default
 
-if ($inputfilename) { # read input file
+if ($inputfilename) { # read pids input file
 	open my $ifile, "<", $inputfilename;
 	while (<$ifile>) {
 		chomp;
@@ -71,9 +71,9 @@ if ($inputfilename) { # read input file
 		my @a = split /\D/;
 		push @pids, shift @a while @a;
 }	}
-push @pids, shift while @ARGV; # read no-opt args
-if (! -t STDIN) { # we have STDIN piped not from terminal
-	while (<>) { # read STDIN
+push @pids, shift while @ARGV; # read pids no-opt args
+if (! -t STDIN) { # STDIN piped not from terminal
+	while (<>) { # read pids STDIN
 		chomp;
 		next unless $_;
 		my @a = split /\D/;
