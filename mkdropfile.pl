@@ -35,6 +35,9 @@ EOU
 }
 die usage() if -t STDIN && $#ARGV < 0;
 
+my (undef, $mm, $hh, $dd, $mo, $yy) = (localtime())[0..5];
+$mo++; $yy =~ s/\d\d?(\d\d)/$1/;
+my $ts = sprintf "%02d%02d%02d%02d%02d", $yy, $mo, $dd, $hh, $mm;
 my $help = 0;
 my @sections = ();
 my @langs = ();
@@ -43,7 +46,8 @@ my @genlevels = ();
 my @tags = ();
 my $queue = '4'; # default
 my $inputfilename;
-my $outputfilename = "Hotel2TriggerEnhanced.txt"; # default
+my $outputprefixname = "Hotel2TriggerEnhanced";
+my $outputfilename = "${outputprefixname}_${ts}.txt"; # default
 my @pids = ();
 GetOptions('help' => \$help,
 	'section|secid=i{1,}' => \@sections,
@@ -62,6 +66,8 @@ if ($help) { print usage(); exit 0; }
 @langs = @langs ? sort {$a <=> $b} uniq(@langs) : ('0'); # default
 @genlevels = @genlevels ? sort {$a <=> $b} uniq(@genlevels) : ('1'); # default
 @tags = @tags ? sort(uniq(@tags)) : (''); # default
+$outputfilename = "$outputprefixname$outputfilename" if $outputfilename =~ /^_/; # prepend prefix if provided name starts with _
+$outputfilename = "$outputfilename.txt" unless $outputfilename =~ /\.txt$/; # append .txt if missing
 
 if ($inputfilename) { # read pids input file
 	open my $ifile, "<", $inputfilename;
