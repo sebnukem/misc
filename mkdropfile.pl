@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # Create a package drop file from a list of property ids
+# author: snicoud@expedia.com
 
 use strict;
 use Getopt::Long;
@@ -24,7 +25,7 @@ Usage:
     -p, --priority INT      specify Priority, default 1
     -g, --generationlevel INT ..  specify Onwer Type Ids, default 1
     -t, --tag STRING ..     specify Tagnames, default null (all tags)
-    -q, --qid, --queue INT  specify Queue ID, default 4
+    -q, --qid, --queue INT  specify Queue ID, default 1
     -i, --input FILENAME    read Property IDs from file
     -o, --output FILENAME   output file name
 
@@ -44,7 +45,7 @@ my @langs = ();
 my $priority = '1'; # default
 my @genlevels = ();
 my @tags = ();
-my $queue = '4'; # default
+my $queue = '1'; # default
 my $inputfilename;
 my $outputprefixname = "Hotel2TriggerEnhanced";
 my $outputfilename = "${outputprefixname}_${ts}.txt"; # default
