@@ -22,6 +22,7 @@ const holidays = [
 ];
 
 // create a local file containing a single user:password line
+// and secure it with chmod 600 credentials
 const credentials_file = './credentials';
 
 
@@ -38,7 +39,9 @@ if (tickets.length == 0) {
 	process.exit(1);
 }
 
-let csv = [];
+let csv = [[
+	'#Ticket', 'Summary', 'Type', 'Status', 'In Progress?', 'Original Estimate (hours)', 'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'Stretch Dates'
+]];
 tickets.forEach(function (ticket) {
 	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
 	console.log('ticket:', ticket);
@@ -54,14 +57,31 @@ tickets.forEach(function (ticket) {
 	// of the ticket until its completion (or now if it is still in progress),
 	// ignoring all the intermediate status changes.
 	// So it's the time spent between the first In Progress to the last one.
-	console.log('stretch time:', h2dh(computed.stretch), computed.stretch_msg);
-	console.log('estimated at:', s2dh(data.fields.timeoriginalestimate));
-	console.log('working time spent:', h2dh(computed.working_hours));
+	console.log('stretch time:', h2dh(computed.stretch, 1), computed.stretch_msg);
+	console.log('estimated at:', s2dh(data.fields.timeoriginalestimate, 1));
+	console.log('working time spent:', h2dh(computed.working_hours, 1));
 	if (computed.wip) console.log(`${ticket} is still a work in progress`);
-	console.log();
+	console.log('_________________________');
+
+	csv.push([
+		ticket,
+		data.fields.summary.replace(/,/g, ' '),
+		data.fields.issuetype.name,
+		data.fields.status.name,
+		computed.wip ? 'WIP' : '',
+		s2h(data.fields.timeoriginalestimate),
+		computed.working_hours,
+		h2dh(computed.working_hours),
+		computed.stretch,
+		h2dh(computed.stretch),
+		computed.stretch_msg,
+	]);
 });
 
-
+console.log()
+csv.forEach(function (row) {
+	console.log(row.join(','));
+});
 
 // get ticket data from JIRA server or filesystem if ticket name ends with ".json"
 function getTicketData(ticket) {
@@ -192,19 +212,23 @@ function getWorkhoursBetween(d1, d2) {
 	};
 }
 
-function s2dh(seconds) {
-	return h2dh(Math.round(seconds / 60 / 60));
-}
-
-function h2dh(hours) {
+function h2dh(hours, show_hours) {
 	let days = Math.floor(hours / 8),
 		remainderhours = hours - days * 8,
 		dh = '';
 	if (days) dh = `${days}d`;
 	if (days && remainderhours) dh += ' ';
 	if (remainderhours) dh += `${remainderhours}h`;
-	if (days) dh += ` (${hours} hours)`;
+	if (days && show_hours) dh += ` (${hours} hours)`;
 	return dh;
+}
+
+function s2h(seconds) {
+	return Math.round(seconds / 60 / 60);
+}
+
+function s2dh(seconds, show_hours) {
+	return h2dh(s2h(seconds), show_hours);
 }
 
 // improve Date
