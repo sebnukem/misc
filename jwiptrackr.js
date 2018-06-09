@@ -1,8 +1,12 @@
 #!/usr/bin/env node
-
 'use strict';
 
-// usage: node jwiptracker.js CSPB-501234
+// usage: node jwiptracker.js CSPB-501234 ...
+// or chmod u+x jwiptravcker.js and call: ./jwiptracker.js CSPB-501234 ...
+
+// create a local file containing a single user:password line
+// and secure it with chmod 600 credentials
+const credentials_file = './credentials';
 
 // update list of holidays
 const holidays = [
@@ -20,128 +24,144 @@ const holidays = [
 	'2018-12-25'
 ];
 
-// create a local file containing a single user:password line
-const credentials_file = './credentials';
-
-// improve Date
-Date.prototype.clone = function() {
-	return new Date(this.valueOf());
-}
-Date.prototype.oneDayLater = function() {
-	return this.setDate(this.getDate() + 1);
-}
-Date.prototype.isSameDayAs = function(date) {
-	return this.getFullYear() === date.getFullYear()
-		&& this.getMonth() === date.getMonth()
-		&& this.getDate() === date.getDate();
-}
-Date.prototype.isWeekend = function() {
-	return this.getDay() == 0 || this.getDay() == 6;
-}
-Date.prototype.isHoliday = (function () {
-	const holydates = holidays.map(it => { return new Date(it+'T00:00:00.001-0700'); });
-	return function() {
-		for (let holiday of holydates) if (this.isSameDayAs(holiday)) return true;
-		return false;
-	}
-})();
-Date.prototype.isWorkday = function() {
-	return !this.isWeekend() && !this.isHoliday();
-}
+///////////////////////////////////////////////////////////////////////////
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
-
-let args = process.argv.slice(2);
-//console.log("args:", args);
-let ticket = args[0];
-if (!ticket) {
-	console.error('MISSING Ticket number. Usage: node jwiptrackr.js CSPB-543210');
-	process.exit(1);
-}
-if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
-ticket = ticket.toUpperCase();
-console.log('ticket:', ticket);
-
-// get ticket data
 const credentials = fs.readFileSync(credentials_file, 'utf8').trim();
-let httpget = spawnSync('curl', [
-	'-u', credentials,
-	'-X', 'GET',
-	'-H', 'Content-Type:application/json',
-	`https://jira.expedia.biz/rest/api/latest/issue/${ticket}?expand=changelog`
-]);
+improveDate();
 
-const outstr = httpget.stdout.toString();
-const errstr = httpget.stderr.toString();
-const data = JSON.parse(outstr);
-//console.log('data:', data);
-//console.log('stderr:', errstr);
-if (data.errorMessages) {
-	console.error('ERROR', data);
-	process.exit(1);
-}
-if (!data) {
-	console.error("ERROR/NOT FOUND");
+let tickets = process.argv.slice(2);
+//console.log("args:", args);
+if (tickets.length == 0) {
+	console.error('MISSING Ticket number(s). Usage: node jwiptrackr.js CSPB-543210 ...');
 	process.exit(1);
 }
 
-// compute
-console.log(`summary: ${data.fields.summary} (${data.fields.issuetype.name})`);
+let csv = [[
+	'#Ticket', 'Summary', 'Type', 'Status', 'In Progress?', 'Original Estimate (hours)',
+	'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'Stretch Dates (from first to last In Progress status)'
+]];
+tickets.forEach(function (ticket) {
+	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
+	console.log('ticket:', ticket);
 
-console.log('current status:', data.fields.status.name);
+	let data = getTicketData(ticket);
+	let computed = compute(data);
 
-console.log('history:');
-let createddate = new Date(data.fields.created);
-console.log(` ${createddate}: created  by ${data.fields.creator.name}`);
-let first_date,
-	first_date_str,
-	current_wip_start_date,
-    last_date,
-    last_date_str,
-    working_hours = 0;
-for (let entry of data.changelog.histories) {
-//	console.log(entry);
-	for (let item of entry.items) {
-		if (item.field != 'status') continue;
-		console.log(` ${entry.created}: ${item.fromString} > ${item.toString}  by ${entry.author.name}`);
-		last_date_str = entry.created;
-		last_date = new Date(entry.created);
+	console.log(`summary: ${data.fields.summary} (${data.fields.issuetype.name})`);
+	console.log('current status:', data.fields.status.name);
+	console.log('history:');
+	console.log(computed.history);
+	// stretch time is the time spent between the first 'In Progress' status
+	// of the ticket until its completion (or now if it is still in progress),
+	// ignoring all the intermediate status changes.
+	// So it's the time spent between the first In Progress to the last one.
+	console.log('stretch time:', h2dh(computed.stretch, 1), computed.stretch_msg);
+	console.log('estimated at:', s2dh(data.fields.timeoriginalestimate, 1));
+	console.log('working time spent:', h2dh(computed.working_hours, 1));
+	if (computed.wip) console.log(`${ticket} is still a work in progress`);
+	console.log('_________________________');
 
-		if (item.toString == 'In Progress') {
-			current_wip_start_date = last_date;
-			if (!first_date) {
-				first_date_str = last_date_str;
-				first_date = last_date;
-		}	}
-		if (item.fromString == 'In Progress') {
-			if (current_wip_start_date) {
-				working_hours += getWorkhoursBetween(current_wip_start_date, last_date);
-				current_wip_start_date = 0;
-			}
-			if (!first_date) {
-				first_date_str = last_date_str;
-				first_date = last_date;
-		}	}
-	} // next item
-} // next entry
-if (current_wip_start_date) {
-	// ticket is still in progress, calculate with last_date being now
-	last_date_str = 'now';
-	last_date = new Date();
-	working_hours += getWorkhoursBetween(current_wip_start_date, last_date);
+	csv.push([
+		ticket,
+		data.fields.summary.replace(/,/g, ' ').replace(/  +/g, ' '),
+		data.fields.issuetype.name,
+		data.fields.status.name,
+		computed.wip ? 'WIP' : '',
+		s2h(data.fields.timeoriginalestimate),
+		computed.working_hours,
+		h2dh(computed.working_hours),
+		computed.stretch,
+		h2dh(computed.stretch),
+		computed.stretch_msg,
+	]);
+});
+
+console.log()
+csv.forEach(function (row) {
+	console.log(row.join(','));
+});
+
+// get ticket data from JIRA server or filesystem if ticket name ends with ".json"
+function getTicketData(ticket) {
+	let json = '';
+	if (/\.json$/i.test(ticket)) {
+		json = fs.readFileSync(ticket, 'utf8');
+	} else {
+		let httpget = spawnSync('curl', [
+			'-u', credentials,
+			'-X', 'GET',
+			'-H', 'Content-Type:application/json',
+			`https://jira.expedia.biz/rest/api/latest/issue/${ticket.toUpperCase()}?expand=changelog`
+		]);
+		json = httpget.stdout.toString();
+		const errstr = httpget.stderr.toString();
+//		console.log('stderr:', errstr);
+	}
+	const data = JSON.parse(json);
+//	console.log('data:', data);
+	if (data.errorMessages) {
+		console.error('ERROR', data);
+		process.exit(1);
+	}
+	if (!data) {
+		console.error("ERROR/NOT FOUND");
+		process.exit(1);
+	}
+	return data;
 }
 
-// stretch time is the time spent between the first 'In Progress' status
-// of the ticket until its completion (or now if it is still in progress),
-// ignoring all the intermediate status changes.
-// So it's the time spent between the first In Progress to the last one.
-let stretch_time = getWorkhoursBetween(first_date, last_date);
-console.log('stretch time:', h2dh(stretch_time), `from ${first_date_str} to ${last_date_str}`);
-console.log('estimated at:', s2dh(data.fields.timeoriginalestimate));
-console.log('working time spent:', h2dh(working_hours));
-if (current_wip_start_date) {
-	console.log('! ticket is still a work in progress');
+// parse ticket changelog data
+function compute(raw) {
+	let first_date, first_date_str,
+	    last_date, last_date_str,
+	    current_wip_start_date,
+	    working_hours = 0,
+	    history = [];
+	for (let entry of raw.changelog.histories) {
+//		console.log(entry);
+		for (let item of entry.items) {
+			if (item.field != 'status') continue;
+			history.push(`${entry.created}: ${item.fromString} ➔ ${item.toString}  by ${entry.author.name}`);
+			last_date_str = entry.created;
+			last_date = new Date(entry.created);
+			if (item.toString == 'In Progress') {
+				current_wip_start_date = last_date;
+				if (!first_date) {
+					first_date_str = last_date_str;
+					first_date = last_date;
+			}	}
+			if (item.fromString == 'In Progress') {
+				if (current_wip_start_date) {
+					let r = getWorkhoursBetween(current_wip_start_date, last_date);
+					working_hours += r.hours;
+					history.push(r.msg);
+					current_wip_start_date = 0;
+				}
+				if (!first_date) {
+					first_date_str = last_date_str;
+					first_date = last_date;
+			}	}
+		} // next item
+	} // next entry
+	if (current_wip_start_date) {
+		// ticket is still in progress, calculate with last_date being now
+		last_date_str = 'now';
+		last_date = new Date();
+		let r = getWorkhoursBetween(current_wip_start_date, last_date);
+		working_hours += r.hours;
+		history.push(r.msg);
+	}
+
+	let data = {};
+	data.wip = !!current_wip_start_date;
+	let stretch = getWorkhoursBetween(first_date, last_date);
+	data.stretch = stretch.hours;
+	data.stretch_msg = `from ${first_date_str} to ${last_date_str}`;
+	data.working_hours = working_hours;
+	data.history = history;
+	return data;
 }
 
 function getWorkdaysBetween(d1, d2) {
@@ -186,25 +206,58 @@ function getWorkhoursBetween(d1, d2) {
 		hours_between += 8; // 8-hour workday
 //		console.log(`${hours_between} added full day`);
 	}
-//	console.log(`  ${hours_between} hours from ${d1} to ${d2}`);
-	return hours_between;
+	return {
+		hours: hours_between,
+		msg: `+${hours_between} hours from ${d1} to ${d2}`
+	};
 }
 
-function s2dh(seconds) {
-	return h2dh(Math.round(seconds / 60 / 60));
-}
-
-function h2dh(hours) {
+function h2dh(hours, show_hours) {
 	let days = Math.floor(hours / 8),
 		remainderhours = hours - days * 8,
 		dh = '';
 	if (days) dh = `${days}d`;
 	if (days && remainderhours) dh += ' ';
 	if (remainderhours) dh += `${remainderhours}h`;
-	if (days) dh += ` (${hours} hours)`;
+	if (days && show_hours) dh += ` (${hours} hours)`;
 	return dh;
 }
 
+function s2h(seconds) {
+	return Math.round(seconds / 60 / 60);
+}
+
+function s2dh(seconds, show_hours) {
+	return h2dh(s2h(seconds), show_hours);
+}
+
+// improve Date
+function improveDate() {
+	Date.prototype.clone = function() {
+		return new Date(this.valueOf());
+	}
+	Date.prototype.oneDayLater = function() {
+		return this.setDate(this.getDate() + 1);
+	}
+	Date.prototype.isSameDayAs = function(date) {
+		return this.getFullYear() === date.getFullYear()
+			&& this.getMonth() === date.getMonth()
+			&& this.getDate() === date.getDate();
+	}
+	Date.prototype.isWeekend = function() {
+		return this.getDay() == 0 || this.getDay() == 6;
+	}
+	Date.prototype.isHoliday = (function () {
+		const holydates = holidays.map(it => { return new Date(it+'T00:00:00.001-0700'); });
+		return function() {
+			for (let holiday of holydates) if (this.isSameDayAs(holiday)) return true;
+			return false;
+		}
+	})();
+	Date.prototype.isWorkday = function() {
+		return !this.isWeekend() && !this.isHoliday();
+	}
+}
 
 /*
 { ..
