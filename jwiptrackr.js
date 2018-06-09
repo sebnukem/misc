@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-
 'use strict';
 
 // usage: node jwiptracker.js CSPB-501234 ...
 // or chmod u+x jwiptravcker.js and call: ./jwiptracker.js CSPB-501234 ...
+
+// create a local file containing a single user:password line
+// and secure it with chmod 600 credentials
+const credentials_file = './credentials';
 
 // update list of holidays
 const holidays = [
@@ -21,11 +24,7 @@ const holidays = [
 	'2018-12-25'
 ];
 
-// create a local file containing a single user:password line
-// and secure it with chmod 600 credentials
-const credentials_file = './credentials';
-
-
+///////////////////////////////////////////////////////////////////////////
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
@@ -40,7 +39,8 @@ if (tickets.length == 0) {
 }
 
 let csv = [[
-	'#Ticket', 'Summary', 'Type', 'Status', 'In Progress?', 'Original Estimate (hours)', 'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'Stretch Dates'
+	'#Ticket', 'Summary', 'Type', 'Status', 'In Progress?', 'Original Estimate (hours)',
+	'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'Stretch Dates (from first to last In Progress status)'
 ]];
 tickets.forEach(function (ticket) {
 	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
@@ -65,7 +65,7 @@ tickets.forEach(function (ticket) {
 
 	csv.push([
 		ticket,
-		data.fields.summary.replace(/,/g, ' '),
+		data.fields.summary.replace(/,/g, ' ').replace(/  +/g, ' '),
 		data.fields.issuetype.name,
 		data.fields.status.name,
 		computed.wip ? 'WIP' : '',
