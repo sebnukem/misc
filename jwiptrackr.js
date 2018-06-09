@@ -23,34 +23,10 @@ const holidays = [
 // create a local file containing a single user:password line
 const credentials_file = './credentials';
 
-// improve Date
-Date.prototype.clone = function() {
-	return new Date(this.valueOf());
-}
-Date.prototype.oneDayLater = function() {
-	return this.setDate(this.getDate() + 1);
-}
-Date.prototype.isSameDayAs = function(date) {
-	return this.getFullYear() === date.getFullYear()
-		&& this.getMonth() === date.getMonth()
-		&& this.getDate() === date.getDate();
-}
-Date.prototype.isWeekend = function() {
-	return this.getDay() == 0 || this.getDay() == 6;
-}
-Date.prototype.isHoliday = (function () {
-	const holydates = holidays.map(it => { return new Date(it+'T00:00:00.001-0700'); });
-	return function() {
-		for (let holiday of holydates) if (this.isSameDayAs(holiday)) return true;
-		return false;
-	}
-})();
-Date.prototype.isWorkday = function() {
-	return !this.isWeekend() && !this.isHoliday();
-}
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
+improveDate();
 
 let args = process.argv.slice(2);
 //console.log("args:", args);
@@ -219,6 +195,33 @@ function h2dh(hours) {
 	return dh;
 }
 
+// improve Date
+function improveDate() {
+	Date.prototype.clone = function() {
+		return new Date(this.valueOf());
+	}
+	Date.prototype.oneDayLater = function() {
+		return this.setDate(this.getDate() + 1);
+	}
+	Date.prototype.isSameDayAs = function(date) {
+		return this.getFullYear() === date.getFullYear()
+			&& this.getMonth() === date.getMonth()
+			&& this.getDate() === date.getDate();
+	}
+	Date.prototype.isWeekend = function() {
+		return this.getDay() == 0 || this.getDay() == 6;
+	}
+	Date.prototype.isHoliday = (function () {
+		const holydates = holidays.map(it => { return new Date(it+'T00:00:00.001-0700'); });
+		return function() {
+			for (let holiday of holydates) if (this.isSameDayAs(holiday)) return true;
+			return false;
+		}
+	})();
+	Date.prototype.isWorkday = function() {
+		return !this.isWeekend() && !this.isHoliday();
+	}
+}
 
 /*
 { ..
