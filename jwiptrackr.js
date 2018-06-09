@@ -2,7 +2,8 @@
 
 'use strict';
 
-// usage: node jwiptracker.js CSPB-501234
+// usage: node jwiptracker.js CSPB-501234 ...
+// or chmod u+x jwiptravcker.js and call: ./jwiptracker.js CSPB-501234 ...
 
 // update list of holidays
 const holidays = [
@@ -24,64 +25,74 @@ const holidays = [
 const credentials_file = './credentials';
 
 
+
 const fs = require('fs');
 const { spawnSync } = require('child_process');
+const credentials = fs.readFileSync(credentials_file, 'utf8').trim();
 improveDate();
 
-let args = process.argv.slice(2);
+let tickets = process.argv.slice(2);
 //console.log("args:", args);
-let ticket = args[0];
-if (!ticket) {
-	console.error('MISSING Ticket number. Usage: node jwiptrackr.js CSPB-543210');
-	process.exit(1);
-}
-if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
-ticket = ticket.toUpperCase();
-console.log('ticket:', ticket);
-
-// get ticket data
-//const credentials = fs.readFileSync(credentials_file, 'utf8').trim();
-//let httpget = spawnSync('curl', [
-//	'-u', credentials,
-//	'-X', 'GET',
-//	'-H', 'Content-Type:application/json',
-//	`https://jira.expedia.biz/rest/api/latest/issue/${ticket}?expand=changelog`
-//]);
-//const outstr = httpget.stdout.toString();
-//const errstr = httpget.stderr.toString();
-//const data = JSON.parse(outstr);
-const data = JSON.parse(fs.readFileSync(ticket.toLowerCase(), 'utf8'));
-//console.log('data:', data);
-//console.log('stderr:', errstr);
-if (data.errorMessages) {
-	console.error('ERROR', data);
-	process.exit(1);
-}
-if (!data) {
-	console.error("ERROR/NOT FOUND");
+if (tickets.length == 0) {
+	console.error('MISSING Ticket number(s). Usage: node jwiptrackr.js CSPB-543210 ...');
 	process.exit(1);
 }
 
-// compute
-let computed = compute(data);
-console.log(`summary: ${data.fields.summary} (${data.fields.issuetype.name})`);
+let csv = [];
+tickets.forEach(function (ticket) {
+	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
+	console.log('ticket:', ticket);
 
-console.log('current status:', data.fields.status.name);
+	let data = getTicketData(ticket);
+	let computed = compute(data);
 
-console.log('history:');
-console.log(computed.history);
+	console.log(`summary: ${data.fields.summary} (${data.fields.issuetype.name})`);
+	console.log('current status:', data.fields.status.name);
+	console.log('history:');
+	console.log(computed.history);
+	// stretch time is the time spent between the first 'In Progress' status
+	// of the ticket until its completion (or now if it is still in progress),
+	// ignoring all the intermediate status changes.
+	// So it's the time spent between the first In Progress to the last one.
+	console.log('stretch time:', h2dh(computed.stretch), computed.stretch_msg);
+	console.log('estimated at:', s2dh(data.fields.timeoriginalestimate));
+	console.log('working time spent:', h2dh(computed.working_hours));
+	if (computed.wip) console.log(`${ticket} is still a work in progress`);
+	console.log();
+});
 
-// stretch time is the time spent between the first 'In Progress' status
-// of the ticket until its completion (or now if it is still in progress),
-// ignoring all the intermediate status changes.
-// So it's the time spent between the first In Progress to the last one.
-console.log('stretch time:', h2dh(computed.stretch), computed.stretch_msg);
-console.log('estimated at:', s2dh(data.fields.timeoriginalestimate));
-console.log('working time spent:', h2dh(computed.working_hours));
-if (computed.wip) console.log(`${ticket} is still a work in progress`);
 
 
+// get ticket data from JIRA server or filesystem if ticket name ends with ".json"
+function getTicketData(ticket) {
+	let json = '';
+	if (/\.json$/i.test(ticket)) {
+		json = fs.readFileSync(ticket, 'utf8');
+	} else {
+		let httpget = spawnSync('curl', [
+			'-u', credentials,
+			'-X', 'GET',
+			'-H', 'Content-Type:application/json',
+			`https://jira.expedia.biz/rest/api/latest/issue/${ticket.toUpperCase()}?expand=changelog`
+		]);
+		json = httpget.stdout.toString();
+		const errstr = httpget.stderr.toString();
+//		console.log('stderr:', errstr);
+	}
+	const data = JSON.parse(json);
+//	console.log('data:', data);
+	if (data.errorMessages) {
+		console.error('ERROR', data);
+		process.exit(1);
+	}
+	if (!data) {
+		console.error("ERROR/NOT FOUND");
+		process.exit(1);
+	}
+	return data;
+}
 
+// parse ticket changelog data
 function compute(raw) {
 	let first_date, first_date_str,
 	    last_date, last_date_str,
@@ -123,6 +134,7 @@ function compute(raw) {
 		history.push(r.msg);
 	}
 
+	let data = {};
 	data.wip = !!current_wip_start_date;
 	let stretch = getWorkhoursBetween(first_date, last_date);
 	data.stretch = stretch.hours;
