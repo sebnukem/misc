@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-// usage: node jwiptracker.js CSPB-501234 ...
-// or chmod u+x jwiptravcker.js and call: ./jwiptracker.js CSPB-501234 ...
+// usage: node jwiptrackr.js CSPB-501234 ...
+// or chmod u+x jwiptrackr.js and call: ./jwiptrackr.js CSPB-501234 ...
+// or call: cat TICKETIDS_FILE | xargs ./jwiptrackr.js
 
 // create a local file containing a single user:password line
 // and secure it with chmod 600 credentials
@@ -32,7 +33,7 @@ const credentials = fs.readFileSync(credentials_file, 'utf8').trim();
 improveDate();
 
 let tickets = process.argv.slice(2);
-//console.log("args:", args);
+console.log("args:", tickets);
 if (tickets.length == 0) {
 	console.error('MISSING Ticket number(s). Usage: node jwiptrackr.js CSPB-543210 ...');
 	process.exit(1);
@@ -166,7 +167,7 @@ function compute(raw) {
 	data.wip = !!current_wip_start_date;
 	let stretch = getWorkhoursBetween(first_date, last_date);
 	data.stretch = stretch.hours;
-	data.stretch_msg = `from ${first_date_str} to ${last_date_str}`;
+	data.stretch_msg = stretch.msg == 'no-dates' ? 'no work recorded' : `from ${first_date_str} to ${last_date_str}`;
 	data.working_hours = working_hours;
 	data.history = history;
 	return data;
@@ -186,6 +187,11 @@ function getWorkdaysBetween(d1, d2) {
 }
 
 function getWorkhoursBetween(d1, d2) {
+	if (!d1 || !d2) {
+		return {
+			hours: 0,
+			msg: 'no-dates'
+	};	}
 	let start_hour = d1.getHours(),
 		end_hour = d2.getHours(),
 		workdays_between = getWorkdaysBetween(d1, d2),
@@ -221,6 +227,8 @@ function getWorkhoursBetween(d1, d2) {
 }
 
 function h2dh(hours, show_hours) {
+	if (hours == null) return '';
+	if (hours === 0) return 0;
 	let days = Math.floor(hours / 8),
 		remainderhours = hours - days * 8,
 		dh = '';
@@ -232,10 +240,12 @@ function h2dh(hours, show_hours) {
 }
 
 function s2h(seconds) {
+	if (seconds == null) return null;
 	return Math.round(seconds / 60 / 60);
 }
 
 function s2dh(seconds, show_hours) {
+	if (seconds == null) return '';
 	return h2dh(s2h(seconds), show_hours);
 }
 
