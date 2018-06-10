@@ -46,8 +46,16 @@ tickets.forEach(function (ticket) {
 	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
 	console.log('ticket:', ticket);
 
-	let data = getTicketData(ticket);
-	let computed = compute(data);
+	let data, computed;
+	try {
+		data = getTicketData(ticket);
+		computed = compute(data);
+	} catch (err) {
+		console.log(`ERROR: ${err}`);
+		console.log('_________________________');
+		csv.push([ticket, ('ERROR: ' + err).sanitizeForCsv(),,,,,,,,,]);
+		return; // next ticket
+	}
 
 	console.log(`summary: ${data.fields.summary} (${data.fields.issuetype.name})`);
 	console.log('current status:', data.fields.status.name);
@@ -65,7 +73,7 @@ tickets.forEach(function (ticket) {
 
 	csv.push([
 		ticket,
-		data.fields.summary.replace(/,/g, ' ').replace(/  +/g, ' '),
+		data.fields.summary.sanitizeForCsv(),
 		data.fields.issuetype.name,
 		data.fields.status.name,
 		computed.wip ? 'WIP' : '',
@@ -74,7 +82,7 @@ tickets.forEach(function (ticket) {
 		h2dh(computed.working_hours),
 		computed.stretch,
 		h2dh(computed.stretch),
-		computed.stretch_msg,
+		computed.stretch_msg
 	]);
 });
 
@@ -103,11 +111,11 @@ function getTicketData(ticket) {
 //	console.log('data:', data);
 	if (data.errorMessages) {
 		console.error('ERROR', data);
-		process.exit(1);
+		throw new Error(data.errorMessages);
 	}
 	if (!data) {
-		console.error("ERROR/NOT FOUND");
-		process.exit(1);
+		console.error('ERROR', 'no data');
+		throw new Error('no data found');
 	}
 	return data;
 }
@@ -256,6 +264,9 @@ function improveDate() {
 	})();
 	Date.prototype.isWorkday = function() {
 		return !this.isWeekend() && !this.isHoliday();
+	}
+	String.prototype.sanitizeForCsv = function() {
+		return this.replace(/,/g, ' ').replace(/  +/g, ' ');
 	}
 }
 
