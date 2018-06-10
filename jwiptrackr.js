@@ -41,7 +41,7 @@ if (tickets.length == 0) {
 
 let csv = [[
 	'#Ticket', 'Summary', 'Type', 'Status', 'In Progress?', 'Original Estimate (hours)',
-	'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'Stretch Dates (from first to last In Progress status)'
+	'Time Spent (hours)', '(days)', 'Stretch (hours)', '(days)', 'From', 'To'
 ]];
 tickets.forEach(function (ticket) {
 	if (/^[0-9]+$/.test(ticket)) ticket = 'CSPB-' + ticket;
@@ -54,7 +54,7 @@ tickets.forEach(function (ticket) {
 	} catch (err) {
 		console.log(`ERROR: ${err}`);
 		console.log('_________________________');
-		csv.push([ticket, ('ERROR: ' + err).sanitizeForCsv(),,,,,,,,,]);
+		csv.push([ticket, ('ERROR: ' + err).sanitizeForCsv(),,,,,,,,,,]);
 		return; // next ticket
 	}
 
@@ -66,7 +66,7 @@ tickets.forEach(function (ticket) {
 	// of the ticket until its completion (or now if it is still in progress),
 	// ignoring all the intermediate status changes.
 	// So it's the time spent between the first In Progress to the last one.
-	console.log('stretch time:', h2dh(computed.stretch, 1), computed.stretch_msg);
+	console.log('stretch time:', h2dh(computed.stretch, 1), `from ${computed.stretch_from} to ${computed.stretch_to}`);
 	console.log('estimated at:', s2dh(data.fields.timeoriginalestimate, 1));
 	console.log('working time spent:', h2dh(computed.working_hours, 1));
 	if (computed.wip) console.log(`${ticket} is still a work in progress`);
@@ -80,10 +80,11 @@ tickets.forEach(function (ticket) {
 		computed.wip ? 'WIP' : '',
 		s2h(data.fields.timeoriginalestimate),
 		computed.working_hours,
-		h2dh(computed.working_hours),
+		h2d(computed.working_hours),
 		computed.stretch,
-		h2dh(computed.stretch),
-		computed.stretch_msg
+		h2d(computed.stretch),
+		computed.stretch_from,
+		computed.stretch_to
 	]);
 });
 
@@ -167,7 +168,8 @@ function compute(raw) {
 	data.wip = !!current_wip_start_date;
 	let stretch = getWorkhoursBetween(first_date, last_date);
 	data.stretch = stretch.hours;
-	data.stretch_msg = stretch.msg == 'no-dates' ? 'no work recorded' : `from ${first_date_str} to ${last_date_str}`;
+	data.stretch_from = stretch.msg === 'no-dates' ? '' : first_date_str;
+	data.stretch_to = stretch.msg === 'no-dates' ? '' : last_date_str;
 	data.working_hours = working_hours;
 	data.history = history;
 	return data;
@@ -247,6 +249,12 @@ function s2h(seconds) {
 function s2dh(seconds, show_hours) {
 	if (seconds == null) return '';
 	return h2dh(s2h(seconds), show_hours);
+}
+
+function h2d(hours) {
+	if (hours == null) return '';
+	if (hours === 0) return 0;
+	return Math.ceil(hours / 8);
 }
 
 // improve Date
