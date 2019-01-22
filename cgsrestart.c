@@ -1,3 +1,9 @@
+// compile on the target system (linux) with gcc -o cgsrestart cgsrestart.c
+// Usage:
+//   cgsrestart [SERVICENAME [COMMAND]]
+// defaults:
+//   cgsrestart cgs-batch restart
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
