@@ -75,3 +75,5 @@ AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$d
 AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/$version.zip
 AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}
 
+echo Done.
+
