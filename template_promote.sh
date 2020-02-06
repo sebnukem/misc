@@ -63,9 +63,10 @@ echo upload updated Test version file...
 AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/properties-test.json s3://cgs-tt-template-export-test/XML/$domain/properties.json || exit 1
 echo upload updated Prod version file...
 AWS_PROFILE=lodgingshared_prod aws s3 cp $localdir/properties-prod.json s3://cgs-tt-template-export-prod/XML/$domain/properties.json || exit 1
+set +x
 
 # check
-echo ls Prod version file:
+echo ls Prod files:
 AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/properties.json
 AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/$version.zip
 AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/DATA/${version}
