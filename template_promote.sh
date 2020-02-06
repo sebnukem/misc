@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 
 # usage: template_promote.sh DOMAIN VERSION
 
@@ -33,6 +32,7 @@ localdir=s3_$version
 mkdir -p $localdir/DATA
 
 # execute
+set -x
 echo download files into $localdir/...
 AWS_PROFILE=lodgingshared_test aws s3 cp s3://cgs-tt-template-export-test/XML/$domain/properties.json $localdir/properties-test.json || exit 1
 AWS_PROFILE=lodgingshared_prod aws s3 cp s3://cgs-tt-template-export-prod/XML/$domain/properties.json $localdir/properties-prod.json || exit 1
@@ -52,7 +52,12 @@ $editor $localdir/properties-test.json
 
 echo upload Test data files...
 AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/${version}.zip s3://cgs-tt-template-export-test/XML/$domain/ || exit 1
-AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_* s3://cgs-tt-template-export-test/XML/$domain/DATA/ || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_DistanceUnitLst.xml s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_DistanceUnitLst.xml || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_DistanceUnitNamesLst.xml s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_DistanceUnitNamesLst.xml || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_SectionTypeLst.xml s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_SectionTypeLst.xml || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_SiteDefinitionLst.csv s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_SiteDefinitionLst.csv || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_TemplateTagContentVersionLst.csv s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_TemplateTagContentVersionLst.csv || exit 1
+AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/DATA/${version}_TemplateTagLst.csv s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}_TemplateTagLst.csv || exit 1
 
 echo upload updated Test version file...
 AWS_PROFILE=lodgingshared_test aws s3 cp $localdir/properties-test.json s3://cgs-tt-template-export-test/XML/$domain/properties.json || exit 1
@@ -62,8 +67,11 @@ AWS_PROFILE=lodgingshared_prod aws s3 cp $localdir/properties-prod.json s3://cgs
 # check
 echo ls Prod version file:
 AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/properties.json
+AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/$version.zip
+AWS_PROFILE=lodgingshared_prod aws s3 ls s3://cgs-tt-template-export-prod/XML/$domain/DATA/${version}
+
 echo ls Test files:
 AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/properties.json
 AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/$version.zip
-AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}*
+AWS_PROFILE=lodgingshared_test aws s3 ls s3://cgs-tt-template-export-test/XML/$domain/DATA/${version}
 
