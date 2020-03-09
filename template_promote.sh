@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# usage: template_promote.sh DOMAIN VERSION
+# Usage: template_promote.sh DOMAIN VERSION
 
-# prerequisites:
+# Prerequisites:
 # aws cli: brew install awscli
 # aws_key_gen: get from https://github.expedia.biz/Brand-Expedia/aws_key_gen
 # editor: vim by default (change editor via editor variable)
+
+# Note:
+# This script is going to create a new s3_VERSION folder in your current directory, so put yourself in tmp/ before running it,
+# and you may delete the s3_VERSION folder once the template promotion is complete.
+
 
 [ $# -eq 2 ] || { echo "Usage: template_promote.sh DOMAIN VERSION"; exit 1; }
 
