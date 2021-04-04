@@ -1,0 +1,427 @@
+MISC
+
+https://jetbrains-fls.expedia.biz
+
+Install ssh key to HOST:
+cat ~/.ssh/id_rsa.pub | ssh HOST "mkdir ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+
+Get dependency list for Maven:
+mvn dependency:tree -Dverbose
+mvn -o dependency:list | grep ":.*:.*:.*" | cut -d] -f2- | sed 's/:[a-z]*$//g' | sort -u 
+
+Check Maven project updates: (-N non recursive)
+mvn -N versions:display-plugin-updates
+mvn -N versions:display-dependency-updates
+
+Listen to StatsD messages:
+stats-logger (npm)
+
+Convert file:
+iconv -f UTF-16 -t UTF-8 filei > fileo
+
+Base64 encode:
+echo -n "user:passwd" | base64
+
+Exit stuck SSH:
+~.
+
+Interactive filtering:
+ps faux | peco
+
+inode usage: df -i /
+list folders by inode content: du --inodes -xS | sort -n
+fast-delete all files from directory: find . -delete
+
+scopy over jumpbox:
+scp -oProxyJump=jt lstu:file.txt .
+
+
+SSHUTTLE
+
+cd dev
+git clone https://github.com/sshuttle/sshuttle
+cd sshuttle
+git checkout v0.78.5
+~/dev/sshuttle/run --dns -r snicoud@bastion.us-west-2.test.lodgingshared.expedia.com 10.9.0.0/16
+
+
+JQ
+
+get hotel room ids,names from content stream for hotel:
+curl -s 'https://cs-content-stream.us-west-2.int.expedia.com/property-info/properties/433450/filters/5/languages/2057' | jq '.message.contents[0].roomTypeContents[] | (.id|tostring) + ": (" + .status + ") " + .name'
+get hotel room ids from content stream for hotel for all langs:
+for langid in `cat lang_ids.txt`; do curl -s "https://cs-content-stream.us-west-2.int.expedia.com/property-info/properties/433450/filters/5/languages/${langid}" | jq '.message.contents[0].roomTypeContents[].id' | wc -l; done
+
+
+VOLUMES
+
+pvs
+lvextend -L+1G /dev/mapper/vg0-usr
+resize2fs /dev/mapper/vg0-usr
+
+
+LIMITS
+
+# cat > /etc/security/limits.d/80-content.conf << 'EOF'
+content soft nofile 16384
+content hard nofile 16384
+EOF
+# chmod 0644 /etc/security/limits.d/80-content.conf
+# cat >> /etc/sysctl.conf << 'EOF'
+# Defines the local port range used by TCP and UDP
+net.ipv4.ip_local_port_range = 2048 65000
+# Allows to reuse TIME-WAIT sockets for new connections
+net.ipv4.tcp_tw_reuse = 1
+EOF
+# sysctl -p
+
+
+VIM
+
+s = xi, C = d$a, S = ^C
+rX replaces one char with X; Normal
+3rX replaces one char with X 3 times (... -> XXX); Normal
+R replaces one char after another = overwrite mode
+sXXX replaces one char with XXX; Insert (s = cl = xi)
+c{motion}XXX replaces motion with XXX; Insert
+C = d$a = replace to EOL
+S = ^C = replace entire line
+
+run one Normal command CMD while in Insert mode: Ctrl-oCMD (ex. Ctrl-ozz)
+paste register R content while in Insert mode: Ctrl-rR (ex. Ctrl-r0)
+
+replace all instances of visual selection: v-select ; y ; :%s/<C-r>"/STR/g
+* search for word under cursor and places string in search register '/' ; :%s//STR/g
+
+copy all lines matching a pattern into register a: qaq ; :g/pattern/y A
+
+open help in single window: :h | only, or: tab h
+edit current file with sudo: :w !sudo tee %
+select search result: gn
+reselect last visual block: gv
+visually select next match: gn, so search: /pattern, then replace/replace found pattern: cgn, dgn, or gnc, gnd
+"*  is the clipboard register, so paste it with: "*p
+current position as bytes, words, lines: g ^G
+shift: visual-select lines then > or <, repeat with ., >> and << act on current line
+auto indent: =, == act on current line
+jump back/fwd to changes: g; g,
+single normal command command in insert mode: Ctrl-o, ex: Ctrl-ozz centers current line without leaving i-mode
+reload current file from disk: :e!
+scroll current line to top, center, bottom: zt, zz, zb
+scroll horizontally (1col, ½screen): zH, zh, zl, zL
+list all previous commands: q:
+
+fix tab/spaces indent mix: set [noexpandtab] then: :retab!
+
+hard wraps:
+tell vim to use 'par' formatter (installed with brew in macos): :set formatprg=par\ -w40
+par-format with: gq
+
+registers:
+list registers: :reg
+execute register X: @X
+
+buffers:
+:ls list all. a = active, # = alt, + = modified
+switch to next/prev buffer: :bn :bp
+switch to alt buffer: C-^ or :b#
+switch to buffer <N>: <N>C-^ pr :b<N>
+:set hidden will allow navigating away from modified buffer, creating a hidden buffer.
+create new buffer in same window: :enew
+
+windows:
+split horizontally/vertically: :sp newfile :vsp newfile, or Ctrl-w s, Ctrl-w v (same file)
+close windows: current: :q, others: :only
+move to another: Ctrl-w [hjkl]
+move current window: Ctrl-w [HJKL]
+see all window command: :h ctrl-w
+
+tabs:
+new tab: tabe filename
+move current window to its own tab: Ctrl-w T
+move to next/prev tab: gt gT
+close other tabs: :tabonly
+open current buffer in new tab: :tab split
+
+folds:
+visual lines and create fold: zf
+delete fold at cursor: zd
+un/fold: za
+set foldmethod=indent|marker (explicit markers are {{{ and }}})
+open close all folds: zR zM
+
+netrw:
+go up on dir: -
+cycle views: i
+open in new tab, vsplit: t, v
+cycle sorting: s
+reverse sorting: r
+
+spell check:
+set spell
+set spelllang=en_us for American, en for generic English
+:setlocal spell spelllang=en_us
+move to prev next word: [s ]s
+suggest correction: z=
+mark word as good bad: zg zw
+undo good bad mark: zug zuw
+
+format json:
+:%!python -m json.tool
+
+format xml:
+:%!xmllint --format -
+:%!xmllint --format --encode UTF-8 -
+
+plugins:
+git clone plugin in .vim/pack/seb/start/
+check loaded plugins: :scriptnames
+
+input output from external command (ex ls -l)
+:r !ls -l
+
+input lines from another file
+:r!grep "patt" filename
+
+write visual selection to another FILENAME
+:'<,'>w FILENAME
+
+paste multiple lines in vim without indent problem: before pasting do:
+:set paste
+
+replace in visual selection: :'<,'>s/././g
+
+count number of pattern occurences:
+:%s/PATTERN//gn
+
+diff current with another file:
+:vert diffsplit FILEB
+:diffoff
+
+show all possible commands matching beginning (ex all commands/all help starting with e)
+:e<Ctrl-d>
+:he e<Ctrl-d>
+
+autocomplete lines: Ctrl-x Ctrl-l
+autocomplete words: Ctrl-x Ctrl-p
+autocomplete filenames: Ctrl-x Ctrl-f
+
+TMUX
+
+tmux
+^b %, "   panel split ||, =
+^b arrow  move to different split
+exit      exit split
+^b t      clock
+^b PageUp scroll up
+^b : resize-pane -D|U|L|R 88 resize current pane down|up|left|right by 88 chars
+
+~/.tmux.conf:
+# enable mouse, tmux-2.1+:
+#set -g mouse on
+# enable mouse, older versions:
+set-window-option -g mouse-resize-pane on
+set-window-option -g mouse-select-pane on
+set-window-option -g mouse-select-window
+set-window-option -g mode-mouse on
+# encoding:
+set -g status-utf8 on
+set -g utf8 on
+# colors:
+# see all 'colourNNN' colors: for i in {0..255}; do printf "\x1b[38;5;${i}mcolour${i}\n"; done
+set -g default-terminal "screen-256color"
+set -g status-bg colour17
+set -g status-fg colour15
+
+
+GIT
+
+merge conflicts without actually merging:
+git merge --no-commit --no-ff BRANCHTOMERGE
+git merge --abort
+
+see diffs between 2 branches:
+git diff ...BRANCHTOCOMPARE
+
+create tag:
+git tag -a TAGNAME -m "COMMENT"
+git push origin --tags
+
+delete tag:
+git tag --delete TAGNAME
+git push --delete origin TAGNAME
+
+spuash multiple commit into one in current branch:
+git rebase -i HEAD~N where N = number of commits
+use 's' to squash, older commit on top of the list. Saving and exiting editor will launch the process.
+
+[snicoud@phelcgsrep001 cgs-dashboard]$ git pull
+fatal: unable to access 'https://ewegithub.sb.karmalab.net/EWE/cgs-dashboard.git/': Peer's Certificate issuer is not recognized.
+env GIT_SSL_NO_VERIFY=true git pull
+
+update local clone to use SSH/Git instead of HTTPS with password:
+git remote set-url origin GIT-CLONE-REFERENCE (ex: git@ewegithub.sb.karmalab.net:ContentSystems/cgs-core.git)
+test with:
+git remote show origin
+
+apply branch A changes (delta between develop and A) to another branch B:
+in A, with develop merged into it
+git diff DEVELOP-HEAD-HASH A-HEAD-HASH > delta.patch
+git co B
+git apply --ignore-space-change --ignore-whitespace --reject delta.patch
+resolve *.rej (rejected) files
+
+overwrite branch with another one:
+git checkout code-to-keep-branch
+git merge -s ours code-to-overwrite-branch
+git checkout code-to-overwrite-branch
+git merge code-to-keep-branch
+
+
+LOGROTATE
+
+/etc/logrotate.d/FILENAME:
+/home/snicoud/cgs-dashboard/nohup.out {
+	missingok
+}
+/home/snicoud/cgs-dashboard/logs/cgs-dashboard.log {
+	missingok
+}
+
+
+RUBICON
+
+start with: rubicon switch; rubicon login; rubicon tar
+rubicon logs cgs-int cp-e-nlg-service -w
+rubicon restart cgs-int cp-e-nlg-service
+rubicon health cgs-int cp-e-nlg-service
+
+
+BREW
+
+what's installed: brew list
+what needs updated: brew outdated
+update brew: brew update
+update software: brew upgrade SOFTWARE
+find new software: brew search [SOFTWARE]
+list versions: brew list --versions
+delete older versions: brew cleanup  (dryrun with -n)
+
+Revert to any older version:
+Get the homebrew-core code: git clone https://github.com/Homebrew/homebrew-core.git
+Print the history of the Formula wanted: git log master -- Formula/sshuttle.rb
+Note the Git hash corresponding to the commit of the version wanted, and install that version (replacingh the hash and formula name in the link below below):
+brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/aff05952497389097820525c9bf8c7e141aee9b2/Formula/sshuttle.rb
+
+
+NODE/EXPRESS
+
+npm -g --depth=0 list - list globally installed packages
+npm -g outdated
+npm -g update PACKAGENAME - will update or leave alone if version diff is outside range of change
+npm -g install PACKAGENAME - will force update to the latest version
+
+run in debug mode with auto reload:
+DEBUG=express:* nodemon app,js
+
+
+
+JAVA INSTALL
+
+MACOS
+download and install .pkg
+See available JDKs on the machine: /usr/libexec/java_home -V
+Pick a Java version (major.minor) to use as default (set in .bash_profile): export JAVA_HOME=`/usr/libexec/java_home -v 11.0`
+
+# openjdk 11+:
+sudo ${JAVA_HOME}/bin/keytool -import -keystore ${JAVA_HOME}/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/ExpediaRoot2015.crt -alias ExpediaRoot2015
+sudo ${JAVA_HOME}/bin/keytool -import -keystore ${JAVA_HOME}/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/Internal2015C1.crt -alias ExpediaInternal2015C1
+sudo ${JAVA_HOME}/bin/keytool -import -keystore ${JAVA_HOME}/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/karmalab.net.pem -alias CA_Expedia
+or
+sudo /opt/jdk-15/bin/keytool -import -keystore /opt/jdk-15/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/ExpediaRoot2015.crt -alias ExpediaRoot2015
+sudo /opt/jdk-15/bin/keytool -import -keystore /opt/jdk-15/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/Internal2015C1.crt -alias ExpediaInternal2015C1
+sudo /opt/jdk-15/bin/keytool -import -keystore /opt/jdk-15/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/karmalab.net.pem -alias CA_Expedia
+
+# openjdk 8:
+sudo bin/keytool -import -keystore jre/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/ExpediaRoot2015.crt -alias ExpediaRoot2015
+sudo bin/keytool -import -keystore jre/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/Internal2015C1.crt -alias ExpediaInternal2015C1
+sudo bin/keytool -import -keystore jre/lib/security/cacerts -storepass changeit -noprompt -file /opt/expedia/karmalab.net.pem -alias CA_Expedia
+
+MBP install:
+download and install 
+update ~/dev/java/jdk symlink
+cd ~/dev
+sudo "$JAVA_HOME/bin/keytool" -import -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit -noprompt -file ExpediaRoot2015.crt -alias ExpediaRoot2015
+sudo "$JAVA_HOME/bin/keytool" -import -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit -noprompt -file Internal2015C1.crt -alias ExpediaInternal2015C1
+sudo "$JAVA_HOME/bin/keytool" -import -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit -noprompt -file karmalab.net.pem -alias CA_Expedia
+
+wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u65-b17/jdk-8u65-linux-x64.rpm -O jdk-8u65-linux-x64.rpm
+wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u65-b17/jdk-8u65-linux-x64.tar.gz  -O jdk-8u65-linux-x64.tar.gz
+
+rpm -Uvh 
+
+sudo alternatives --config java
+
+sudo alternatives --set javac /usr/java/jdk1.8.0_65/bin/javac
+sudo alternatives --set jar /usr/java/jdk1.8.0_65/bin/jar
+
+-----------------------
+
+# install openjdk as root
+cd /opt
+wget https://download.java.net/java/GA/jdk11/9/GPL/openjdk-11.0.2_linux-x64_bin.tar.gz
+tar xvf openjdk-11.0.2_linux-x64_bin.tar.gz
+ln -s jdk-11.0.2 jdk11
+alternatives --install /usr/bin/java java /opt/jdk11/bin/java 1
+alternatives --install /usr/bin/jar jar /opt/jdk11/bin/jar 1
+alternatives --install /usr/bin/javac javac /opt/jdk11/bin/javac 1
+alternatives --set jar /opt/jdk11/bin/jar
+alternatives --set javac /opt/jdk11/bin/javac
+alternatives --config java
+java -version
+cd /usr/java
+rm latest
+ln -s /opt/jdk11 latest
+
+export JAVA_HOME=/opt/jdk11
+export PATH=$PATH:/opt/jdk11/bin
+
+
+
+SECURITY/HTTPS
+
+Secure web
+
+https://blog.codinghorror.com/lets-encrypt-everything/
+https://letsencrypt.org/getting-started/
+https://certbot.eff.org/#centosrhel7-apache
+
+Enable HTTPS:
+$ yum install mod_ssl
+$ vim /etc/httpd/conf.d/ssl.conf
+DocumentRoot "/var/www/html"
+ServerName eseb.net:443
+SSLProtocol All -SSLv2 -SSLv3
+SSLCipherSuite HIGH:MEDIUM:!aNULL:!MD5:!SEED:!IDEA:!RC4
+# !RC4 disables insecure RC4 for better security rating at ssllabs test report
+
+$ systemctl restart httpd
+https is now enabled but insecure
+
+$ yum install python2-certbot-apache certbot
+
+$ certbot --apache
+https site is now enabled with a valid certificate
+
+test with: https://www.ssllabs.com/ssltest/
+
+certificate is valid for 90 days
+renew with:
+$ certbot renew
+
+test renewal process:
+$ certbot renew --dry-run
+
+automate renewal process with cron:
+# renew every 2 months, day 1 at 1:50AM
+50 1 1 */2 * certbot renew --quiet
